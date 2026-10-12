@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="description" content="记录工作台 —— 编号流水登记、状态跟踪、一键复制成稿">
+<meta name="color-scheme" content="light dark">
+<title>记录工作台</title>
+<link rel="stylesheet" href="styles.css">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%232563eb'/%3E%3Ctext y='72' x='50' text-anchor='middle' font-size='58'%3E%F0%9F%97%82%EF%B8%8F%3C/text%3E%3C/svg%3E">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🗂️</span>
+    <span>记录工作台</span>
+    <span class="ver">v1.0</span>
+    <small id="countHint"></small>
+  </div>
+  <span class="spacer"></span>
+  <div class="save-state" id="saveState"><span class="dot"></span><span id="saveText">数据存在本机</span></div>
+</header>
+
+<main class="layout">
+
+  <!-- ============ 左：录入 + 成稿 ============ -->
+  <section class="col">
+
+    <div class="card">
+      <div class="card-head">
+        <h2 id="formTitle">新增记录</h2>
+        <span class="spacer"></span>
+        <button class="btn xs" id="btnCancelEdit" hidden>取消编辑</button>
+      </div>
+      <div class="card-body">
+
+        <label class="field">
+          <span class="label">编号 <em>*</em><i>多个用逗号 / 空格 / 换行分隔</i></span>
+          <textarea id="fCode" rows="2" placeholder="23423234, 234234234, 089797"></textarea>
+        </label>
+
+        <div class="row2">
+          <label class="field">
+            <span class="label">事项</span>
+            <select id="fType"></select>
+          </label>
+          <label class="field">
+            <span class="label">状态</span>
+            <select id="fStatus"></select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span class="label">说明 / 诉求</span>
+          <input id="fDesc" type="text" placeholder="帮我解绑一下">
+        </label>
+
+        <div class="row2">
+          <label class="field">
+            <span class="label">确认人 / 处理人</span>
+            <input id="fOwner" type="text" placeholder="运营助理">
+          </label>
+          <label class="field">
+            <span class="label">备注</span>
+            <input id="fNote" type="text" placeholder="可选">
+          </label>
+        </div>
+
+        <div class="presets">
+          <div class="presets-head">
+            <span class="label">快捷句 <i>点一下自动填好「说明 + 确认人」，不用再手打</i></span>
+            <span class="spacer"></span>
+            <button class="btn xs" id="btnSavePreset" type="button" title="把当前「说明 + 确认人」存成一个快捷句，以后一点就有">＋ 存成快捷句</button>
+          </div>
+          <div class="preset-list" id="presetBox"></div>
+        </div>
+
+        <label class="check">
+          <input type="checkbox" id="fSplit" checked>
+          <span>每个编号单独一条记录（方便逐条跟状态）</span>
+        </label>
+
+        <div class="actions">
+          <button class="btn primary" id="btnSave">保存记录（Ctrl + Enter）</button>
+          <button class="btn" id="btnReset">重置</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head">
+        <h2>要复制的内容</h2>
+        <span class="spacer"></span>
+        <button class="btn xs" id="btnCopyLine" title="备用格式：每行一条记录，制表符分隔，粘到 Excel 会自动分列">表格行</button>
+        <button class="btn xs" id="btnCopyList" title="备用格式：带字段名的多行明细">详细清单</button>
+      </div>
+      <pre class="brief empty" id="preview">填好编号后，这里会显示点「复制」之后粘出去的那句话。</pre>
+      <div class="copybar">
+        <button class="btn primary wide" id="btnCopyBrief">📋 复制</button>
+      </div>
+      <div class="tpl">
+        <span class="label">格式</span>
+        <input id="fTpl" type="text" spellcheck="false" autocomplete="off">
+        <button class="btn xs" id="btnTplReset" title="回到默认格式">默认</button>
+      </div>
+      <div class="hint">
+        可用占位符：<code>{编号}</code> <code>{事项}</code> <code>{说明}</code> <code>{状态}</code> <code>{确认人}</code> <code>{备注}</code> <code>{日期}</code> <code>{时间}</code><br>
+        没填的字段会自动连同它前面的「，」一起省略，不会出现空逗号；多个编号会自动并成一行。
+      </div>
+    </div>
+
+  </section>
+
+  <!-- ============ 右：列表 + 数据 ============ -->
+  <aside class="col">
+
+    <div class="card">
+      <div class="card-head">
+        <h2>记录列表</h2>
+        <span class="spacer"></span>
+        <span class="hint" id="listHint"></span>
+        <button class="btn xs" id="btnCopyFiltered" title="把当前筛选结果复制成表格行（制表符分隔）">复制表格行</button>
+      </div>
+      <div class="card-body">
+
+        <div class="row2">
+          <input id="search" class="search" type="text" placeholder="搜索 编号 / 说明 / 确认人 / 备注…">
+          <select id="typeFilter" class="mini"></select>
+        </div>
+
+        <div class="chips" id="statusChips"></div>
+
+        <div class="bulkbar" id="bulkbar" hidden>
+          <span id="bulkCount" class="bulk-count"></span>
+          <span class="spacer"></span>
+          <select id="bulkStatus" class="mini"></select>
+          <button class="btn xs" id="btnBulkStatus">改状态</button>
+          <button class="btn xs danger" id="btnBulkDelete">删除</button>
+          <button class="btn xs" id="btnClearSel">取消选择</button>
+        </div>
+
+        <div class="list" id="list"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>数据 / 备份</h2></div>
+      <div class="card-body">
+        <div class="actions">
+          <button class="btn xs" id="btnExportCsv">导出 CSV</button>
+          <button class="btn xs" id="btnExportJson">导出备份 JSON</button>
+          <button class="btn xs" id="btnImport">导入 JSON</button>
+          <button class="btn xs danger" id="btnClearAll">清空全部</button>
+        </div>
+        <div class="hint">
+          所有记录只存在<strong>这台电脑的这个浏览器</strong>里（localStorage），页面上传不出去、别人也看不到。<br>
+          换电脑、换浏览器、清缓存之前，记得先「导出备份 JSON」。
+        </div>
+        <input type="file" id="fileInput" accept=".json,application/json" hidden>
+      </div>
+    </div>
+
+  </aside>
+
+</main>
+
+<div id="toast"></div>
+<script src="app.js"></script>
+</body>
+</html>
